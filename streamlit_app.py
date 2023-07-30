@@ -4,7 +4,7 @@ import langchain
 import OpenAI
 import tiktoken
 import unstructured
-import faiss-cpu
+import faiss_cpu
 import pytesseract
 
 %%writefile app.py
