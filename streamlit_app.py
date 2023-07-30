@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit-chat
+import streamlit_chat
 import langchain
 import OpenAI
 import tiktoken
