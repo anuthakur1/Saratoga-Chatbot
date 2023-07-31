@@ -1,0 +1,7 @@
+streamlit-chat
+langchain
+OpenAI
+tiktoken
+unstructured
+faiss-cpu
+pytesseract
