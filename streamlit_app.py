@@ -6,9 +6,6 @@ import tiktoken
 import unstructured
 import faiss_cpu
 import pytesseract
-
-%%writefile app.py
-
 import openai
 import os
 
