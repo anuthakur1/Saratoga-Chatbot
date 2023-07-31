@@ -1,6 +1,7 @@
-streamlit-chat
 langchain
-OpenAI
+openai
+streamlit
+streamlit-chat
 tiktoken
 unstructured
 faiss-cpu
