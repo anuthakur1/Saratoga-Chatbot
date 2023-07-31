@@ -41,6 +41,7 @@ from langchain.llms import OpenAI
 # Download OpenAI embeddings and map document chunks to embeddings in vector db
 embeddings = OpenAIEmbeddings()
 db = FAISS.from_documents(texts, embeddings)
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 llm = OpenAI(temperature=0)
 
 from langchain.prompts import PromptTemplate
