@@ -12,7 +12,7 @@ import pytesseract
 import openai
 import os
 
-# add api key
+os.environ["openai_secret_key"] == st.secrets["openai_secret_key"]
 
 from langchain.chains.summarize import load_summarize_chain
 
