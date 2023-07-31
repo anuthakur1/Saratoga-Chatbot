@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_chat import message
 import langchain
-import OpenAI
+from langchain.llms import OpenAI
 import tiktoken
 import unstructured
 import faiss_cpu
