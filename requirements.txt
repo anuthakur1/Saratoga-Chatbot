@@ -6,3 +6,4 @@ tiktoken
 unstructured
 faiss-cpu
 pytesseract
+libmagic
