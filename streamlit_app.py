@@ -53,7 +53,7 @@ def get_text():
   input_text = st.text_input("You: ", "Hello, how are you?", key="input")
   return input_text
 
-def generate_response2(query, db):
+def generate_response(query, db):
   docs = db.similarity_search(query, k=20)
   chain = load_summarize_chain(llm, chain_type="map_reduce", map_prompt=QUESTION_PROMPT1, combine_prompt=COMBINE_PROMPT1)
   answer = chain.run(input_documents=docs, question=query)
@@ -77,7 +77,7 @@ user_input = get_text()
 if user_input:
   #output = generate_response(user_input)
   # store the output
-  output = generate_response2(user_input, db)
+  output = generate_response(user_input, db)
   st.session_state.past.append(user_input)
   st.session_state.generated.append(output)
 
