@@ -103,11 +103,37 @@ from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 
+if __name__ == '__main__':
+    Crawler(urls=['https://www.saratogahigh.org/']).run()
+
 # Download OpenAI embeddings and map document chunks to embeddings in vector db
 embeddings = OpenAIEmbeddings()
 db = FAISS.load_local("faiss_index", embeddings)
-print("Loaded db from file")
+#print("Loaded db from file")
 #os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
+from langchain.prompts import PromptTemplate
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+
+for result in results:
+  urls = [result['link']]
+  print("processing URL " + urls[0])
+  loader = WebBaseLoader(urls)
+  data = loader.load()
+
+  texts = text_splitter.split_documents(data)
+  print (f'Now you have {len(texts)} documents')
+  db.add_documents(texts)
+
+docs = db.similarity_search(query, k=5)
+
+print (f'You have {len(docs)} documents')
+for doc in docs:
+    print(doc)
+    print('')
+
 llm = OpenAI(temperature=0)
 
 from langchain.prompts import PromptTemplate
