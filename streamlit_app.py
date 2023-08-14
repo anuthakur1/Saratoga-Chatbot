@@ -15,38 +15,47 @@ from langchain.chains.summarize import load_summarize_chain
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
-
-# Download OpenAI embeddings and map document chunks to embeddings in vector db
-embeddings = OpenAIEmbeddings()
-db = FAISS.load_local("faiss_index", embeddings)
-print("Loaded db from file")
-#os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-llm = OpenAI(temperature=0)
-
 from langchain.prompts import PromptTemplate
 
-question_prompt_template1 = """Use the following portion of a long document to see if any of the text is relevant to answer the question.
-Return any relevant text in English.
-{text}
-Question: {question}
-Relevant text, if any, in English:"""
-QUESTION_PROMPT1 = PromptTemplate(
-    template=question_prompt_template1, input_variables=["text", "question"]
-)
+class AppHelper(object):
+    def __new__(cls):
+        """ creates a singleton object, if it is not created,
+        or else returns the previous singleton object"""
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(CrawlerSingleton, cls).__new__(cls)
+        # Download OpenAI embeddings and map document chunks to embeddings in vector db
+        embeddings = OpenAIEmbeddings()
+        self.db = FAISS.load_local("faiss_index", embeddings)
+        print("Loaded db from file")
+        #os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+        self.llm = OpenAI(temperature=0)
+        
+        question_prompt_template1 = """Use the following portion of a long document to see if any of the text is relevant to answer the question.
+        Return any relevant text in English.
+        {text}
+        Question: {question}
+        Relevant text, if any, in English:"""
+        self.QUESTION_PROMPT1 = PromptTemplate(
+        template=question_prompt_template1, input_variables=["text", "question"]
+        )
+        
+        combine_prompt_template1 = """Given the following extracted parts of a long document and a question, create a 1000 word essay with references ("SOURCES") for each sentence.
+        If you don't know the answer, just say that you don't know. Don't try to make up an answer.
+        ALWAYS return a "SOURCES" part in your answer.
+        Respond in English.
+        
+        QUESTION: {question}
+        =========
+        {text}
+        =========
+        FINAL ANSWER IN English:"""
+        self.COMBINE_PROMPT1 = PromptTemplate(
+        template=combine_prompt_template1, input_variables=["text", "question"]
+        )
 
-combine_prompt_template1 = """Given the following extracted parts of a long document and a question, create a 1000 word essay with references ("SOURCES") for each sentence.
-If you don't know the answer, just say that you don't know. Don't try to make up an answer.
-ALWAYS return a "SOURCES" part in your answer.
-Respond in English.
+        return cls.instance
 
-QUESTION: {question}
-=========
-{text}
-=========
-FINAL ANSWER IN English:"""
-COMBINE_PROMPT1 = PromptTemplate(
-    template=combine_prompt_template1, input_variables=["text", "question"]
-)
+helper = AppHelper()
 
 # We will get the user's input by calling the get_text function
 def get_text():
@@ -55,7 +64,7 @@ def get_text():
 
 def generate_response(query, db):
   docs = db.similarity_search(query, k=20)
-  chain = load_summarize_chain(llm, chain_type="map_reduce", map_prompt=QUESTION_PROMPT1, combine_prompt=COMBINE_PROMPT1)
+  chain = load_summarize_chain(helper.llm, chain_type="map_reduce", map_prompt=helper.QUESTION_PROMPT1, combine_prompt=helper.COMBINE_PROMPT1)
   answer = chain.run(input_documents=docs, question=query)
   answer.replace ('. ', '.\n')
   return answer
@@ -77,7 +86,7 @@ user_input = get_text()
 if user_input:
   #output = generate_response(user_input)
   # store the output
-  output = generate_response(user_input, db)
+  output = generate_response(user_input, helper.db)
   st.session_state.past.append(user_input)
   st.session_state.generated.append(output)
 
