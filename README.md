@@ -1,6 +1,8 @@
 # Saratoga Chatbot
 
-<img width="727" alt="image" src="https://github.com/anuthakur1/Saratoga-Chatbot/assets/85850320/fdece36d-6682-4b11-81ab-4d7fd3b18608">
+<img src="https://github.com/anuthakur1/Saratoga-Chatbot/assets/85850320/fdece36d-6682-4b11-81ab-4d7fd3b18608"
+    width = "700"
+    height = "700">
 
 The Saratoga Chatbot can be used to answer all the questions you have about the city of Saratoga, CA. When you run the program, you will be taken to a domain where you will see the chatbot and be able to ask your questions.
 
