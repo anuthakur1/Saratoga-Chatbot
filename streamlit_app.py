@@ -1,15 +1,22 @@
+# A streamlit based frontend that reads a vector db and creates a simple web interface
+# for a chatbot. The prompting is done via a simple langchain based chain.
+# Note that we use st.cache_resource to make sure the vectordb and other large resources like embeddings
+# and the language model are loaded only once.
+
+# To run:
+# streamlit run streamlit_app.py
+
 import streamlit as st
 from streamlit_chat import message
 import langchain
 from langchain.llms import OpenAI
+from langchain.embeddings import HuggingFaceEmbeddings
 import tiktoken
 import unstructured
 from langchain.vectorstores import FAISS
 import pytesseract
 import openai
 import os
-
-#os.environ["openai_secret_key"] == st.secrets["openai_secret_key"]
 
 from langchain.chains.summarize import load_summarize_chain
 from langchain.vectorstores import FAISS
@@ -20,10 +27,10 @@ from langchain.prompts import PromptTemplate
 @st.cache_resource
 def init_resources():
   # Download OpenAI embeddings and map document chunks to embeddings in vector db
-  embeddings = OpenAIEmbeddings()
+  #embeddings = OpenAIEmbeddings()
+  embeddings = HuggingFaceEmbeddings()
   db = FAISS.load_local("faiss_index", embeddings)
   print("Loaded db from file ")
-  #os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
   llm = OpenAI(temperature=0)
   
   question_prompt_template = """Use the following portion of a long document to see if any of the text is relevant to answer the question.
@@ -35,8 +42,9 @@ def init_resources():
   template=question_prompt_template, input_variables=["text", "question"]
   )
   
-  combine_prompt_template = """Given the following extracted parts of a long document and a question, create a 1000 word essay with references ("SOURCES") for each sentence.
-  If you don't know the answer, just say that you don't know. Don't try to make up an answer.
+  combine_prompt_template = """Given the following extracted parts of a long document and a question, create around 1000 word essay with references ("SOURCES") for each sentence.
+  If you don't know the answer, just say that you don't know. Don't try to make up an answer. Always end the 
+  answer with a full sentence.
   ALWAYS return a "SOURCES" part in your answer.
   Respond in English.
   
@@ -68,7 +76,7 @@ def generate_response(query, db, llm, QUESTION_PROMPT, COMBINE_PROMPT):
 import streamlit as st
 from streamlit_chat import message
 
-st.title("chatBot : Streamlit + openAI")
+st.title("Saratoga Chatbot")
 
 if 'generated' not in st.session_state:
   st.session_state['generated'] = []
