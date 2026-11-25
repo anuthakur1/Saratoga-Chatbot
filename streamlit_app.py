@@ -6,6 +6,9 @@
 # To run:
 # streamlit run streamlit_app.py
 
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
+
 from copy import deepcopy
 import streamlit as st
 from streamlit_chat import message
