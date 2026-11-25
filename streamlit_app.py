@@ -6,6 +6,7 @@
 # To run:
 # streamlit run streamlit_app.py
 
+from copy import deepcopy
 import streamlit as st
 from streamlit_chat import message
 import langchain
@@ -21,17 +22,41 @@ import os
 from langchain.chains.summarize import load_summarize_chain
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 
 @st.cache_resource
+class CompatibleChatOpenAI(ChatOpenAI):
+    def _combine_llm_outputs(self, llm_outputs):
+        cleaned_outputs = []
+
+        for output in llm_outputs:
+            if output is None:
+                cleaned_outputs.append(None)
+                continue
+
+            cleaned = dict(output)
+            cleaned["token_usage"] = {
+                k: v
+                for k, v in output.get("token_usage", {}).items()
+                if isinstance(v, (int, float))
+            }
+
+            cleaned_outputs.append(cleaned)
+
+        return super()._combine_llm_outputs(cleaned_outputs)
+    
 def init_resources():
   # Download OpenAI embeddings and map document chunks to embeddings in vector db
-  #embeddings = OpenAIEmbeddings()
-  embeddings = HuggingFaceEmbeddings()
+  embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-mpnet-base-v2"
+  )
   db = FAISS.load_local("faiss_index", embeddings)
   print("Loaded db from file ")
-  llm = OpenAI(temperature=0)
+  llm = CompatibleChatOpenAI(
+    model_name="gpt-4o-mini",
+    temperature=0
+  )
   
   question_prompt_template = """Use the following portion of a long document to see if any of the text is relevant to answer the question.
   Return any relevant text in English.
@@ -61,15 +86,29 @@ def init_resources():
 
 # We will get the user's input by calling the get_text function
 def get_text():
-  input_text = st.text_input("You: ", "Hello, how are you?", key="input")
+  input_text = st.text_input("You: ", " ", key="input")
   return input_text
 
 def generate_response(query, db, llm, QUESTION_PROMPT, COMBINE_PROMPT):
-  docs = db.similarity_search(query, k=20)
-  chain = load_summarize_chain(llm, chain_type="map_reduce", map_prompt=QUESTION_PROMPT, combine_prompt=COMBINE_PROMPT)
-  answer = chain.run(input_documents=docs, question=query)
-  answer.replace ('. ', '.\n')
-  return answer
+  docs = deepcopy(db.similarity_search(query, k=20))
+
+  for doc in docs:
+      source = doc.metadata.get("source", "Unknown")
+      doc.page_content = (
+          f"Source: {source}\n\n{doc.page_content}"
+      )
+
+  chain = load_summarize_chain(
+      llm,
+      chain_type="map_reduce",
+      map_prompt=QUESTION_PROMPT,
+      combine_prompt=COMBINE_PROMPT
+  )
+
+  answer = chain.run(
+      input_documents=docs,
+      question=query
+  )
 
 (db, llm, QUESTION_PROMPT, COMBINE_PROMPT) = init_resources()
 
