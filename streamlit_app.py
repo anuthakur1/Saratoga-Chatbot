@@ -7,28 +7,18 @@
 # streamlit run streamlit_app.py
 
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
-
 from copy import deepcopy
-import streamlit as st
-from streamlit_chat import message
-import langchain
-from langchain.llms import OpenAI
-from langchain.embeddings import HuggingFaceEmbeddings
-import tiktoken
-import unstructured
-from langchain.vectorstores import FAISS
-import pytesseract
-import openai
-import os
 
-from langchain.chains.summarize import load_summarize_chain
+import streamlit as st
+
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chat_models import ChatOpenAI
+from langchain.chains.summarize import load_summarize_chain
 from langchain.prompts import PromptTemplate
 
-@st.cache_resource
+load_dotenv()  # Load environment variables from .env file
+
 class CompatibleChatOpenAI(ChatOpenAI):
     def _combine_llm_outputs(self, llm_outputs):
         cleaned_outputs = []
@@ -49,8 +39,9 @@ class CompatibleChatOpenAI(ChatOpenAI):
 
         return super()._combine_llm_outputs(cleaned_outputs)
     
+@st.cache_resource
 def init_resources():
-  # Download OpenAI embeddings and map document chunks to embeddings in vector db
+  # Load the embedding model, FAISS index, and language model
   embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-mpnet-base-v2"
   )
@@ -61,36 +52,80 @@ def init_resources():
     temperature=0
   )
   
-  question_prompt_template = """Use the following portion of a long document to see if any of the text is relevant to answer the question.
-  Return any relevant text in English.
+  question_prompt_template = """
+  You are an information retrieval assistant for Saratoga.
+
+  Extract information from the document below that is relevant to answering the user's question.
+
+  Consider both directly relevant information and information that could help address the user's 
+  underlying intent. For example, a question about things to do for fun may be answered using information 
+  about parks, restaurants, recreation, shopping, and local attractions.
+  
+  Rules:
+  - Preserve the names of businesses, schools, attractions,
+    and other entities alongside their relevant details.
+  - Preserve the original source URL
+  - Do not invent information or sources
+  - Do not include general background knowledge
+  - Do not repeat information unnecessarily
+  - If the document contains no relevant information, respond with "No relevant information."
+
+  Document:
   {text}
-  Question: {question}
-  Relevant text, if any, in English:"""
+
+  Question:
+  {question}
+
+  Relevant information:
+  """
   QUESTION_PROMPT = PromptTemplate(
   template=question_prompt_template, input_variables=["text", "question"]
   )
   
-  combine_prompt_template = """Given the following extracted parts of a long document and a question, create around 1000 word essay with references ("SOURCES") for each sentence.
-  If you don't know the answer, just say that you don't know. Don't try to make up an answer. Always end the 
-  answer with a full sentence.
-  ALWAYS return a "SOURCES" part in your answer.
-  Respond in English.
-  
-  QUESTION: {question}
-  =========
+  combine_prompt_template = """
+  You are a friendly, knowledgeable local guide to Saratoga,
+  California. Help residents and visitors discover the community,
+  find useful information, and make informed decisions.
+
+  Speak naturally and conversationally, like a helpful local
+  rather than a search engine or business directory.
+
+  Answer the user's question using ONLY the retrieved information
+  below. Treat these documents as your sole source of knowledge.
+
+  Rules:
+  - Address the user's underlying intent and adapt your tone
+    and level of detail to their question.
+  - Prioritize specific, useful information over generic descriptions.
+  - Keep responses concise, generally under 250 words, using
+    paragraphs or compact bullet points where appropriate.
+  - When making recommendations, explicitly name each suggested
+    place and explain why it might suit the user's preferences.
+    Avoid unsupported rankings.
+  - Synthesize relevant information across documents rather than
+    simply reproducing directory listings.
+  - Include addresses, phone numbers, and other details when useful.
+  - Clearly distinguish Saratoga from neighboring cities.
+  - Ground all factual claims in the retrieved information and
+    cite actual source URLs using Markdown links.
+  - If the question is unrelated to Saratoga, California,
+    politely explain your specialization and redirect the user.
+  - If the retrieved information is insufficient, acknowledge
+    the limitation without supplementing it with general knowledge.
+
+  Retrieved information:
   {text}
-  =========
-  FINAL ANSWER IN English:"""
+
+  User question:
+  {question}
+
+  Answer:
+  """
   COMBINE_PROMPT = PromptTemplate(
   template=combine_prompt_template, input_variables=["text", "question"]
   )
 
   return (db, llm, QUESTION_PROMPT, COMBINE_PROMPT)
-
-# We will get the user's input by calling the get_text function
-def get_text():
-  input_text = st.text_input("You: ", " ", key="input")
-  return input_text
 
 def generate_response(query, db, llm, QUESTION_PROMPT, COMBINE_PROMPT):
   docs = deepcopy(db.similarity_search(query, k=20))
@@ -113,30 +148,55 @@ def generate_response(query, db, llm, QUESTION_PROMPT, COMBINE_PROMPT):
       question=query
   )
 
-(db, llm, QUESTION_PROMPT, COMBINE_PROMPT) = init_resources()
+  return answer
 
-import streamlit as st
-from streamlit_chat import message
+st.set_page_config(
+    page_title="Saratoga Chatbot",
+    page_icon="💬",
+    layout="centered"
+)
 
 st.title("Saratoga Chatbot")
 
-if 'generated' not in st.session_state:
-  st.session_state['generated'] = []
+st.caption(
+    "Ask me about schools, parks, local businesses, "
+    "and more in Saratoga, California."
+)
 
-if 'past' not in st.session_state:
-  st.session_state['past'] = []
+db, llm, QUESTION_PROMPT, COMBINE_PROMPT = init_resources()
 
-user_input = get_text()
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
+# Display previous messages in chronological order
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if user_input:
-  #output = generate_response(user_input)
-  # store the output
-  output = generate_response(user_input, db, llm, QUESTION_PROMPT, COMBINE_PROMPT)
-  st.session_state.past.append(user_input)
-  st.session_state.generated.append(output)
+# Accept a new question
+if user_input := st.chat_input("Ask a question about Saratoga..."):
 
-if st.session_state['generated']:
-  for i in range(len(st.session_state['generated']) - 1, -1, -1):
-    message(st.session_state["generated"][i], key=str(i))
-    message(st.session_state['past'][i], is_user=True, key=str(i) + '_user')
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
+
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Searching for information..."):
+            answer = generate_response(
+                user_input,
+                db,
+                llm,
+                QUESTION_PROMPT,
+                COMBINE_PROMPT
+            )
+
+        st.markdown(answer)
+
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": answer
+    })
